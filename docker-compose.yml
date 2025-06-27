@@ -1,44 +1,56 @@
 services:
 
-   apipedidos: # nome do serviço
-     container_name: api-pedidos-springboot # nome do container
-     build:
-       context: . # Caminho do diretório onde está o Dockerfile
-       dockerfile: Dockerfile # Nome do arquivo Dockerfile
-     ports:
-       - "8081:8081" #porta externa / interna
-     networks:
-       - apipedidos-network # rede compartilhada
-     depends_on: # Dependências do serviço
-       - postgres # Espera o serviço postgres iniciar antes de iniciar o serviço apipedidos
-     environment: # Variáveis de ambiente
-        SPRING_PROFILES_ACTIVE: docker 	
-        SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/bd_pedidos # URL do banco de dados
-        SPRING_DATASOURCE_USERNAME: usuario_apipedidos # Usuário do banco de dados
-        SPRING_DATASOURCE_PASSWORD: senha_apipedidos # Senha do banco de dados
-        SPRING_JPA_HIBERNATE_DDL_AUTO: update # Configuração do Hibernate para atualizar o esquema do banco de dados
-        SPRING_JPA_SHOW_SQL: true # Exibir as consultas SQL no console  
-   
-   postgres:
-     image: postgres:16 	
-     container_name: apiPedidos-postgresql
-     restart: always #sempre reiniciar o container quando parar
-     environment:
-       POSTGRES_USER: usuario_apipedidos
-       POSTGRES_PASSWORD: senha_apipedidos
-       POSTGRES_DB: bd_pedidos
-     ports:
-       - "5436:5432" # Porta externa para a máquina / porta interna do container
-     volumes:
-       - .postgres_data:/var/lib/postgresql/data #Local detron do container para armazenar os dados
-     networks:
-       - apipedidos-network # rede compartilhada
+   apipedidos: # Nome do serviço
+       container_name: api-pedidos-springboot # Nome do container
+       build:
+          context: . # Raiz do projeto
+          dockerfile: Dockerfile # Ler o arquivo Dockerfile
+       ports:
+          - "8081:8081" # Portas externa e interna
+       networks:
+          - apipedidos-network # Nome da rede compartilhada
+       depends_on:
+          - postgres # Nome do serviço que iremos aguardar para executar a API
+          - rabbitmq # Também aguardamos o serviço do RabbitMQ
+       environment:
+          SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/bd_apipedidos # URL do banco PostgreSQL
+          SPRING_DATASOURCE_USERNAME: usuario_apipedidos # Usuário do banco
+          SPRING_DATASOURCE_PASSWORD: senha_apipedidos # Senha do banco
+          SPRING_RABBITMQ_HOST: rabbitmq # Host do RabbitMQ (nome do serviço)
+
+   postgres: # Nome do serviço
+       image: postgres:16 # Imagem oficial do postgresql versão 16
+       container_name: api-pedidos-postgresql # Nome do container
+       restart: always # Sempre reiniciar o container quando ele parar
+       environment:
+           POSTGRES_USER: usuario_apipedidos # Nome do usuário administrador
+           POSTGRES_PASSWORD: senha_apipedidos # Senha do usuário
+           POSTGRES_DB: bd_apipedidos # Nome do banco de dados
+       ports:
+          - "5436:5432" # Porta externa para a máquina / porta interna do container
+       volumes:
+          - postgres_data:/var/lib/postgresql/data # Local dentro do container para armazenar os dados
+       networks:
+          - apipedidos-network # Nome da rede compartilhada
+
+   rabbitmq: # Nome do serviço
+       image: rabbitmq:3-management # Imagem oficial do RabbitMQ com painel de administração
+       container_name: api-pedidos-rabbitmq # Nome do container
+       ports:
+         - "5672:5672" # Porta padrão para comunicação com aplicações
+         - "15672:15672" # Porta para acessar o painel web do RabbitMQ
+       environment:
+         RABBITMQ_DEFAULT_USER: guest # Usuário padrão
+         RABBITMQ_DEFAULT_PASS: guest # Senha padrão
+       networks:
+         - apipedidos-network # Nome da rede compartilhada
 
 volumes:
-   postgres_data: #Resgistrando o volume para armazenar os dados
-   
-networks: 
-   apipedidos-network: # Registrando a rede para o serviço
-     driver: bridge # Tipo de rede compartilhada
-     
-   
+   postgres_data: # Registrando o volume para armazenar os dados
+
+networks:
+   apipedidos-network: # Nome da rede
+      driver: bridge # Rede compartilhada
+
+
+
