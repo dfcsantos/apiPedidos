@@ -8,6 +8,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.context.request.WebRequest;
+import br.com.cotiinformatica.domain.exceptions.PedidoNaoCriadoException;
 import br.com.cotiinformatica.domain.exceptions.PedidoNaoEncontradoException;
 @ControllerAdvice
 public class GlobalExceptionHandler {
@@ -42,7 +43,19 @@ public class GlobalExceptionHandler {
 		
 		return new ResponseEntity<>(body, HttpStatus.NOT_FOUND);
 	}
+	
+	@ExceptionHandler(PedidoNaoCriadoException.class)
+	public ResponseEntity<Map<String, Object>> handlePedidoNaoCriadoException(
+			PedidoNaoCriadoException exception,
+			WebRequest request
+			) {
+		
+		var body = new HashMap<String, Object>();
+		body.put("status", HttpStatus.UNPROCESSABLE_ENTITY.value());
+		body.put("erros", exception.getMessage());
+		
+		return new ResponseEntity<>(body, HttpStatus.UNPROCESSABLE_ENTITY);
+	}
 }
-
 
 

@@ -5,31 +5,57 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-import br.com.cotiinformatica.components.MessageProducerComponent;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import br.com.cotiinformatica.domain.dtos.requests.PedidoRequest;
 import br.com.cotiinformatica.domain.dtos.responses.PedidoResponse;
+import br.com.cotiinformatica.domain.entities.OutboxMessage;
 import br.com.cotiinformatica.domain.entities.Pedido;
+import br.com.cotiinformatica.domain.exceptions.PedidoNaoCriadoException;
 import br.com.cotiinformatica.domain.exceptions.PedidoNaoEncontradoException;
 import br.com.cotiinformatica.domain.interfaces.PedidoService;
+import br.com.cotiinformatica.repositories.OutboxMessageRepository;
 import br.com.cotiinformatica.repositories.PedidoRepository;
 @Service
 public class PedidoServiceImpl implements PedidoService {
 	@Autowired
-	private PedidoRepository pedidoRepository;
+	public PedidoRepository pedidoRepository;
 	
 	@Autowired
-	private ModelMapper modelMapper;
+	public OutboxMessageRepository outboxMessageRepository;
 	
 	@Autowired
-	private MessageProducerComponent messageProducerComponent;
+	public PlatformTransactionManager transactionManager;
+	
+	@Autowired
+	public ModelMapper modelMapper;
+	
+	@Autowired
+	public ObjectMapper objectMapper;
 	
 	@Override
 	public PedidoResponse criar(PedidoRequest request) {		
 		
 		var pedido = modelMapper.map(request, Pedido.class);	
 		
-		pedidoRepository.save(pedido);			
-		messageProducerComponent.send(pedido);
+		var transaction = new TransactionTemplate(transactionManager);		
+		transaction.executeWithoutResult(status -> {
+			try {	
+				
+				pedidoRepository.save(pedido);
+				var outboxMessage = new OutboxMessage();
+				outboxMessage.setTipoEvento("pedido_criado");
+				outboxMessage.setPayload(objectMapper.writeValueAsString(pedido));
+				
+				outboxMessageRepository.save(outboxMessage);
+			}
+			catch(Exception e) {
+				status.setRollbackOnly(); //desfazer a transação
+				e.printStackTrace();
+				throw new PedidoNaoCriadoException(); //lançar uma exceção
+			}
+		});	
 		
 		return modelMapper.map(pedido, PedidoResponse.class);
 	}
